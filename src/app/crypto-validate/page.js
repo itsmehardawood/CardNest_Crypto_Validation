@@ -6,7 +6,8 @@ export default function CryptoValidatePage() {
   const [walletAddress, setWalletAddress] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [validationStep, setValidationStep] = useState('');
-  const [validationStatus, setValidationStatus] = useState(null); // 'success' | 'error' | null
+  const [validationStatus, setValidationStatus] = useState(null); 
+  const [validationMessage, setValidationMessage] = useState('');
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
@@ -16,47 +17,83 @@ export default function CryptoValidatePage() {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setWalletAddress(text);
+      setWalletAddress(text.trim());
     } catch (err) {
       console.error('Failed to read clipboard:', err);
     }
   };
 
   const handleValidation = async () => {
+    const address = walletAddress.trim();
+    if (!address) return;
+
     setIsValidating(true);
     setValidationStatus(null);
+    setValidationMessage('');
 
-    // Step 1: Checking wallet format
-    setValidationStep('Checking wallet format…');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setValidationStep('Validating address...');
 
-    // Step 2: Verifying network
-    setValidationStep('Verifying network…');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const response = await fetch('https://admin.cardnest.io/api/crypto/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address,
+          chain: null,
+          memo: null,
+        }),
+      });
 
-    // Step 3: Running security scan
-    setValidationStep('Running security scan…');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      const data = await response.json().catch(() => null);
+      const validFlag = [
+        data?.isValid,
+        data?.valid,
+        data?.data?.isValid,
+        data?.data?.valid,
+      ].find((value) => typeof value === 'boolean');
 
-    // Randomly simulate success or error
-    const isSuccess = Math.random() > 0.3;
-    setValidationStatus(isSuccess ? 'success' : 'error');
-    setIsValidating(false);
-    setValidationStep('');
+      if (!response.ok || validFlag === false) {
+        const errorMessage =
+          data?.message ||
+          data?.error ||
+          'Invalid wallet address or network mismatch. Please verify and try again.';
+        throw new Error(errorMessage);
+      }
+
+      setValidationStatus('success');
+      setValidationMessage(
+        data?.message ||
+          data?.result ||
+          'Wallet address verified successfully. You may proceed with the transaction.'
+      );
+    } catch (error) {
+      setValidationStatus('error');
+      setValidationMessage(
+        error?.message ||
+          'Unable to validate wallet address right now. Please try again.'
+      );
+    } finally {
+      setIsValidating(false);
+      setValidationStep('');
+    }
   };
 
   const handleRetry = () => {
     setValidationStatus(null);
+    setValidationMessage('');
     setWalletAddress('');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-950 to-black flex flex-col items-center justify-center p-4 md:p-8 animate-fadeIn">
+    <div className="relative min-h-screen bg-gradient-to-br from-gray-900 via-red-950 to-black flex flex-col p-4 md:p-8 animate-fadeIn">
       {/* Background overlay with subtle pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"></div>
       
       {/* Main Content Container */}
-      <div className="relative w-full max-w-2xl z-10">
+      <div className="relative z-10 flex w-full flex-1 items-center justify-center">
+        <div className="w-full max-w-2xl">
         
         {/* Glassmorphism Card */}
         <div className="bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 md:p-12 space-y-8">
@@ -158,7 +195,7 @@ export default function CryptoValidatePage() {
                     <span>Validating...</span>
                   </>
                 ) : (
-                  <span>Continue</span>
+                  <span>Start Security Validation</span>
                 )}
               </button>
             )}
@@ -197,7 +234,7 @@ export default function CryptoValidatePage() {
                       Verification Successful
                     </h3>
                     <p className="text-green-300/90 text-sm">
-                      Wallet address verified successfully. You may proceed with the transaction.
+                      {validationMessage || 'Wallet address verified successfully. You may proceed with the transaction.'}
                     </p>
                   </div>
                 </div>
@@ -231,7 +268,7 @@ export default function CryptoValidatePage() {
                         Verification Failed
                       </h3>
                       <p className="text-red-300/90 text-sm">
-                        Invalid wallet address or network mismatch. Please verify and try again.
+                        {validationMessage || 'Invalid wallet address or network mismatch. Please verify and try again.'}
                       </p>
                     </div>
                   </div>
@@ -269,13 +306,15 @@ export default function CryptoValidatePage() {
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="text-center mt-8">
-          <p className="text-gray-500 text-xs md:text-sm">
-            © 2026 CardNest. All rights reserved.
-          </p>
-        </footer>
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="relative z-10 w-full pt-6 pb-2 text-center">
+        <p className="text-gray-500 text-xs md:text-sm">
+          © 2026 CardNest. All rights reserved.
+        </p>
+      </footer>
 
       {/* Custom animations */}
       <style jsx>{`
