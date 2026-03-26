@@ -33,6 +33,9 @@ export default function CryptoValidatePage() {
 
     setValidationStep('Validating address...');
 
+    let nextStatus = 'error';
+    let nextMessage = 'Unable to validate wallet address right now. Please try again.';
+
     try {
       const response = await fetch('https://admin.cardnest.io/api/crypto/validate', {
         method: 'POST',
@@ -40,6 +43,7 @@ export default function CryptoValidatePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          merchant_id: '276581V33945Y270',
           address,
           chain: null,
           memo: null,
@@ -47,36 +51,39 @@ export default function CryptoValidatePage() {
       });
 
       const data = await response.json().catch(() => null);
-      const validFlag = [
-        data?.isValid,
-        data?.valid,
-        data?.data?.isValid,
-        data?.data?.valid,
-      ].find((value) => typeof value === 'boolean');
 
-      if (!response.ok || validFlag === false) {
+      if (!response.ok || !data) {
         const errorMessage =
           data?.message ||
           data?.error ||
-          'Invalid wallet address or network mismatch. Please verify and try again.';
+          'Unable to validate wallet address right now. Please try again.';
         throw new Error(errorMessage);
       }
 
-      setValidationStatus('success');
-      setValidationMessage(
-        data?.message ||
-          data?.result ||
-          'Wallet address verified successfully. You may proceed with the transaction.'
-      );
+      const isApproved = data?.valid === true && data?.sanction_list === 'approve';
+
+      if (isApproved) {
+        nextStatus = 'success';
+        nextMessage = data?.message || 'Wallet address is approved and can be used.';
+      } else {
+        nextStatus = 'error';
+        nextMessage =
+          data?.valid === false
+            ? "This address isn't valid. Please check and try again."
+            : 'This address is not approved for transaction.';
+      }
     } catch (error) {
-      setValidationStatus('error');
-      setValidationMessage(
-        error?.message ||
-          'Unable to validate wallet address right now. Please try again.'
-      );
+      nextStatus = 'error';
+      nextMessage =
+        error?.message || 'Unable to validate wallet address right now. Please try again.';
     } finally {
+      setValidationStep('Finalizing security checks...');
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       setIsValidating(false);
       setValidationStep('');
+      setValidationStatus(nextStatus);
+      setValidationMessage(nextMessage);
     }
   };
 
@@ -87,9 +94,9 @@ export default function CryptoValidatePage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-gray-900 via-red-950 to-black flex flex-col p-4 md:p-8 animate-fadeIn">
+    <div className="relative min-h-screen bg-linear-to-br from-gray-900 via-red-950 to-black flex flex-col p-4 md:p-8 animate-fadeIn">
       {/* Background overlay with subtle pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"></div>
       
       {/* Main Content Container */}
       <div className="relative z-10 flex w-full flex-1 items-center justify-center">
@@ -102,7 +109,7 @@ export default function CryptoValidatePage() {
           <div className="text-center space-y-4">
             {/* Security Icon */}
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/50">
+              <div className="w-16 h-16 rounded-full bg-linear-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/50">
                 <svg 
                   className="w-8 h-8 text-white" 
                   fill="none" 
@@ -168,7 +175,7 @@ export default function CryptoValidatePage() {
               <button
                 onClick={handleValidation}
                 disabled={isValidating}
-                className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 animate-slideUp"
+                className="w-full py-4 bg-linear-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 animate-slideUp"
               >
                 {isValidating ? (
                   <>
@@ -207,82 +214,6 @@ export default function CryptoValidatePage() {
                 <p className="text-gray-300 text-sm md:text-base">{validationStep}</p>
               </div>
             )}
-
-            {/* Success State */}
-            {validationStatus === 'success' && (
-              <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/50 rounded-xl p-6 animate-slideUp">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                      <svg 
-                        className="w-6 h-6 text-white" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M5 13l4 4L19 7" 
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-green-400 font-semibold text-lg mb-1">
-                      Verification Successful
-                    </h3>
-                    <p className="text-green-300/90 text-sm">
-                      {validationMessage || 'Wallet address verified successfully. You may proceed with the transaction.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Error State */}
-            {validationStatus === 'error' && (
-              <div className="space-y-4 animate-slideUp">
-                <div className="bg-gradient-to-r from-red-500/20 to-rose-500/20 border border-red-500/50 rounded-xl p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                        <svg 
-                          className="w-6 h-6 text-white" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M6 18L18 6M6 6l12 12" 
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-red-400 font-semibold text-lg mb-1">
-                        Verification Failed
-                      </h3>
-                      <p className="text-red-300/90 text-sm">
-                        {validationMessage || 'Invalid wallet address or network mismatch. Please verify and try again.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Retry Button */}
-                <button
-                  onClick={handleRetry}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Try Again
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Security Notice */}
@@ -315,6 +246,108 @@ export default function CryptoValidatePage() {
           © 2026 CardNest. All rights reserved.
         </p>
       </footer>
+
+      {validationStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 md:p-8 animate-fadeIn">
+          <div
+            className={`w-full max-w-xl rounded-3xl border p-8 md:p-10 shadow-2xl animate-slideUp ${
+              validationStatus === 'success'
+                ? 'bg-linear-to-br from-emerald-950/90 to-green-900/70 border-green-500/50'
+                : 'bg-linear-to-br from-rose-950/90 to-red-900/70 border-red-500/50'
+            }`}
+          >
+            <div className="flex items-start gap-4 md:gap-5">
+              <div className="mt-1">
+                {validationStatus === 'success' ? (
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <h3
+                  className={`text-2xl font-bold mb-2 ${
+                    validationStatus === 'success' ? 'text-green-300' : 'text-red-300'
+                  }`}
+                >
+                  {validationStatus === 'success' ? 'Address Approved' : 'Address Not Valid'}
+                </h3>
+                <p
+                  className={`text-sm md:text-base leading-relaxed ${
+                    validationStatus === 'success' ? 'text-green-100/90' : 'text-red-100/90'
+                  }`}
+                >
+                  {validationMessage}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => {
+                  if (validationStatus === 'success') {
+                    setValidationStatus(null);
+                    return;
+                  }
+                  handleRetry();
+                }}
+                className={`w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  validationStatus === 'success'
+                    ? 'bg-green-500 hover:bg-green-400 text-white'
+                    : 'bg-red-500 hover:bg-red-400 text-white'
+                }`}
+              >
+                {validationStatus === 'success' ? 'Continue' : 'Try Again'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isValidating && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-black/40 p-8 text-center shadow-2xl">
+            <div className="mx-auto relative h-20 w-20">
+              <div className="absolute inset-0 rounded-full border-4 border-red-400/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-red-400 border-r-rose-300 animate-spin"></div>
+              <div className="absolute inset-3 rounded-full border-4 border-transparent border-b-red-500/80 animate-[spin_1.4s_linear_infinite_reverse]"></div>
+            </div>
+            <h3 className="mt-6 text-xl font-semibold text-white">Verifying Address</h3>
+            <p className="mt-2 text-sm text-gray-300">
+              {validationStep || 'Running security checks...'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Custom animations */}
       <style jsx>{`
