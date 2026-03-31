@@ -1,47 +1,88 @@
 const SESSION_TTL = 15 * 60 * 1000;
+const sessions = new Map();
 
-// Use Redis or database in production.
-const globalStore = globalThis;
-if (!globalStore.__cardNestSessions) {
-  globalStore.__cardNestSessions = new Map();
+function encodeBase64Url(value) {
+  const base64 =
+    typeof Buffer !== 'undefined'
+      ? Buffer.from(value, 'utf8').toString('base64')
+      : btoa(unescape(encodeURIComponent(value)));
+
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-const sessions = globalStore.__cardNestSessions;
+function decodeBase64Url(value) {
+  const padded = value + '==='.slice((value.length + 3) % 4);
+  const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
 
-function generateSessionId() {
-  return crypto.randomUUID();
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(base64, 'base64').toString('utf8');
+  }
+
+  return decodeURIComponent(escape(atob(base64)));
 }
 
-function pruneExpiredSessions() {
-  const now = Date.now();
+function parseSessionToken(sessionId) {
+  if (!sessionId) {
+    return null;
+  }
 
-  for (const [sessionId, session] of sessions.entries()) {
-    if (now - session.createdAt > SESSION_TTL) {
-      sessions.delete(sessionId);
-    }
+  try {
+    const decoded = decodeBase64Url(String(sessionId));
+    return JSON.parse(decoded);
+  } catch {
+    return null;
   }
 }
 
-function createSession(merchantId, authToken) {
-  pruneExpiredSessions();
+function generateSessionId() {
+  return encodeBase64Url(crypto.randomUUID());
+}
 
-  const sessionId = generateSessionId();
-  sessions.set(sessionId, {
+function pruneExpiredSessions() {
+  // Stateless token flow has nothing to prune in-process.
+}
+
+function createSession(merchantId, authToken) {
+  const payload = {
+    v: 1,
+    nonce: generateSessionId(),
     merchantId,
     authToken,
     createdAt: Date.now(),
-  });
+  };
 
-  return sessionId;
+  return encodeBase64Url(JSON.stringify(payload));
 }
 
 function getSession(sessionId) {
-  pruneExpiredSessions();
-  return sessions.get(sessionId) || null;
+  const payload = parseSessionToken(sessionId);
+
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const createdAt = Number(payload.createdAt);
+  if (!Number.isFinite(createdAt)) {
+    return null;
+  }
+
+  if (Date.now() - createdAt > SESSION_TTL) {
+    return null;
+  }
+
+  if (!payload.merchantId || !payload.authToken) {
+    return null;
+  }
+
+  return {
+    merchantId: String(payload.merchantId),
+    authToken: String(payload.authToken),
+    createdAt,
+  };
 }
 
 function deleteSession(sessionId) {
-  sessions.delete(sessionId);
+  // No-op for stateless demo sessions.
 }
 
 export {
