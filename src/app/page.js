@@ -42,6 +42,7 @@ function CryptoValidatePageContent() {
   const [validationStep, setValidationStep] = useState('');
   const [validationStatus, setValidationStatus] = useState(null); 
   const [validationMessage, setValidationMessage] = useState('');
+  const [approvedPoints, setApprovedPoints] = useState(successValidationPoints);
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
@@ -103,20 +104,20 @@ function CryptoValidatePageContent() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"></div>
 
         <div className="relative z-10 w-full max-w-xl  rounded-3xl bg-linear-to-br from-red-950/55 via-black/55 to-red-900/45 backdrop-blur-xl  border border-red-500/40 bg-black/45  p-8 md:p-10 shadow-2xl">
-          <div className="flex items-start gap-4 md:gap-5">
-            <div className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-600/90 shadow-lg shadow-red-600/40">
-              <ShieldAlert className="h-6 w-6 text-white" aria-hidden="true" />
+          <div className="space-y-4 text-center">
+            <div className="flex justify-center mb-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600/90 shadow-lg shadow-red-600/40">
+                <ShieldAlert className="h-6 w-6 text-white" aria-hidden="true" />
+              </div>
             </div>
 
-            <div className="flex-1 space-y-3">
+            <div className="space-y-3">
               <h1 className="text-2xl md:text-3xl font-bold text-red-200 tracking-tight">Access Denied</h1>
               <p className="text-sm md:text-base leading-relaxed text-red-100/90">
-                Secure session validation failed. The merchant_id and auth_token are missing,
-                expired, or invalid for this request.
+                We couldn&apos;t verify this secure link right now.
               </p>
               <p className="text-xs md:text-sm text-gray-300/90">
-                Please request a fresh secure link from the merchant and open the app again using
-                that URL.
+                Please request a new link from the merchant and try again.
               </p>
             </div>
           </div>
@@ -223,15 +224,23 @@ function CryptoValidatePageContent() {
     setIsValidating(true);
     setValidationStatus(null);
     setValidationMessage('');
+    setApprovedPoints(successValidationPoints);
 
     const minValidationLoaderMs = 7000;
     const secondStepDelayMs = 3000;
+    const thirdStepDelayMs = 5000;
     const validationStartedAt = Date.now();
 
     setValidationStep('Running security checks...');
-    const validationStepTimer = setTimeout(() => {
-      setValidationStep('This crypto address is validating against millions of sanctioned data..');
+    const secondValidationStepTimer = setTimeout(() => {
+      setValidationStep(
+        "The recipient's crypto address you entered passed our security format validation..."
+      );
     }, secondStepDelayMs);
+
+    const thirdValidationStepTimer = setTimeout(() => {
+      setValidationStep('This crypto address is validating against millions of sanctioned data..');
+    }, thirdStepDelayMs);
 
     let nextStatus = 'error';
     let nextMessage = 'Unable to validate wallet address right now. Please try again.';
@@ -263,8 +272,18 @@ function CryptoValidatePageContent() {
       const isApproved = data?.valid === true && data?.sanction_list === 'approve';
 
       if (isApproved) {
+        const chainFromValidation = data?.chain ? String(data.chain).trim() : '';
+        const nextApprovedPoints = [...successValidationPoints];
+
+        if (chainFromValidation) {
+          nextApprovedPoints.unshift(
+            `The recipient's crypto address you entered belongs to ${chainFromValidation} Blockchain`
+          );
+        }
+
         nextStatus = 'success';
         nextMessage = successValidationPoints.join(' ');
+        setApprovedPoints(nextApprovedPoints);
       } else {
         nextStatus = 'error';
         nextMessage =
@@ -283,7 +302,8 @@ function CryptoValidatePageContent() {
         await new Promise((resolve) => setTimeout(resolve, remainingLoaderMs));
       }
 
-      clearTimeout(validationStepTimer);
+      clearTimeout(secondValidationStepTimer);
+      clearTimeout(thirdValidationStepTimer);
 
       setIsValidating(false);
       setValidationStep('');
@@ -336,8 +356,8 @@ function CryptoValidatePageContent() {
               </div>
             </div>
             
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-              Verify Wallet Address
+            <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight">
+              Verify Recipient Crypto Wallet Address
             </h1>
             <p className="text-gray-300 text-sm md:text-base max-w-lg mx-auto leading-relaxed">
               For security reasons, please validate the wallet address before proceeding with the transaction.
@@ -522,7 +542,7 @@ function CryptoValidatePageContent() {
 
       {validationStatus === 'success' && (
         <ApprovedModal
-          points={successValidationPoints}
+          points={approvedPoints}
           onContinue={() => {
             setValidationStatus(null);
           }}
