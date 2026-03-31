@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteSession, getSession } from "./src/lib/session";
+import { getSession } from "./src/lib/session";
 
 function accessDeniedResponse() {
   return new NextResponse("Access Denied", {
@@ -24,7 +24,8 @@ function handleSessionGate(request) {
   const sessionId = searchParams.get("session_id");
 
   if (!sessionId) {
-    return accessDeniedResponse();
+    // Allow direct page visits; the page itself handles secure-session UI state.
+    return NextResponse.next();
   }
 
   const session = getSession(sessionId);
@@ -32,9 +33,6 @@ function handleSessionGate(request) {
   if (!session) {
     return accessDeniedResponse();
   }
-
-  // One-time use: consume the session immediately after successful validation.
-  deleteSession(sessionId);
 
   return NextResponse.next();
 }
