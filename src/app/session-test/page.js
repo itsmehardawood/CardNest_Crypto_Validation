@@ -55,7 +55,7 @@ export default function SessionTestPage() {
       <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8 backdrop-blur">
         <h1 className="text-2xl font-semibold">Session API Test</h1>
         <p className="mt-2 text-sm text-gray-300">
-          Click the button to test POST /api/session using static merchant_id and random auth_token.
+          Click the button to test POST /api/session using static merchant_id and random auth_token as web and mobile integration would. You should be redirected to the home page with session_id in query params on success, or see an error message if something goes wrong.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6">

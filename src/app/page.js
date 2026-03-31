@@ -1,12 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import ApprovedModal from '@/components/ApprovedModal';
 import InvalidModal from '@/components/InvalidModal';
 
 export default function CryptoValidatePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          Loading secure session...
+        </div>
+      }
+    >
+      <CryptoValidatePageContent />
+    </Suspense>
+  );
+}
+
+function CryptoValidatePageContent() {
+  const DEFAULT_MERCHANT_ID = '0961266R069G7006';
   const successValidationPoints = [
     "The recipient's crypto address you entered passed our security format validation.",
     'This crypto address was securely validated successfully against millions of sanctioned data.',
@@ -17,6 +32,12 @@ export default function CryptoValidatePage() {
   const [hasAccess, setHasAccess] = useState(false);
   const accessCheckStarted = useRef(false);
   const [walletAddress, setWalletAddress] = useState('');
+  const merchantId = DEFAULT_MERCHANT_ID;
+  const [memoTag, setMemoTag] = useState('');
+  const [isMemoRequired, setIsMemoRequired] = useState(false);
+  const [memoChain, setMemoChain] = useState('');
+  const [isCheckingMemo, setIsCheckingMemo] = useState(false);
+  const [memoCheckError, setMemoCheckError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [validationStep, setValidationStep] = useState('');
   const [validationStatus, setValidationStatus] = useState(null); 
@@ -57,8 +78,16 @@ export default function CryptoValidatePage() {
   }, [searchParams]);
 
   useEffect(() => {
-    setShowButton(walletAddress.trim().length > 0);
-  }, [walletAddress]);
+    const hasAddress = walletAddress.trim().length > 0;
+    const hasMemo = memoTag.trim().length > 0;
+
+    if (!hasAddress || isCheckingMemo) {
+      setShowButton(false);
+      return;
+    }
+
+    setShowButton(isMemoRequired ? hasMemo : true);
+  }, [walletAddress, memoTag, isMemoRequired, isCheckingMemo]);
 
   if (!accessChecked) {
     return (
@@ -96,10 +125,68 @@ export default function CryptoValidatePage() {
     );
   }
 
+  const runMemoCheck = async (address) => {
+    const cleanedAddress = address.trim();
+
+    if (!cleanedAddress) {
+      setWalletAddress('');
+      setMemoTag('');
+      setIsMemoRequired(false);
+      setMemoChain('');
+      setMemoCheckError('');
+      setIsCheckingMemo(false);
+      return;
+    }
+
+    setWalletAddress(cleanedAddress);
+    setMemoTag('');
+    setIsMemoRequired(false);
+    setMemoChain('');
+    setMemoCheckError('');
+    setIsCheckingMemo(true);
+    const startedAt = Date.now();
+
+    try {
+      const response = await fetch('https://admin.cardnest.io/api/crypto/memo-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          address: cleanedAddress,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data) {
+        throw new Error(data?.message || data?.error || 'Unable to check memo requirement.');
+      }
+
+      setMemoChain(data?.chain ? String(data.chain) : '');
+
+      if (data?.is_memo_required === true) {
+        setIsMemoRequired(true);
+      }
+    } catch (error) {
+      setIsMemoRequired(false);
+      setMemoChain('');
+      setMemoCheckError('Memo check unavailable. You can continue validation without memo.');
+    } finally {
+      const minLoaderMs = 3500;
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs < minLoaderMs) {
+        await new Promise((resolve) => setTimeout(resolve, minLoaderMs - elapsedMs));
+      }
+      setIsCheckingMemo(false);
+    }
+  };
+
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setWalletAddress(text.trim());
+      await runMemoCheck(text);
     } catch (err) {
       console.error('Failed to read clipboard:', err);
     }
@@ -108,18 +195,43 @@ export default function CryptoValidatePage() {
   const handleInputPaste = (event) => {
     event.preventDefault();
     const pastedText = event.clipboardData?.getData('text') || '';
-    setWalletAddress(pastedText.trim());
+    runMemoCheck(pastedText);
+  };
+
+  const handleMemoPaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setMemoTag(text.trim());
+    } catch (err) {
+      console.error('Failed to read clipboard for memo/tag:', err);
+    }
+  };
+
+  const handleMemoInputPaste = (event) => {
+    event.preventDefault();
+    const pastedText = event.clipboardData?.getData('text') || '';
+    setMemoTag(pastedText.trim());
   };
 
   const handleValidation = async () => {
     const address = walletAddress.trim();
     if (!address) return;
 
+    const memoValue = isMemoRequired ? memoTag.trim() : null;
+    if (isMemoRequired && !memoValue) return;
+
     setIsValidating(true);
     setValidationStatus(null);
     setValidationMessage('');
 
-    setValidationStep('Validating address...');
+    const minValidationLoaderMs = 7000;
+    const secondStepDelayMs = 3000;
+    const validationStartedAt = Date.now();
+
+    setValidationStep('Running security checks...');
+    const validationStepTimer = setTimeout(() => {
+      setValidationStep('This crypto address is validating against millions of sanctioned data..');
+    }, secondStepDelayMs);
 
     let nextStatus = 'error';
     let nextMessage = 'Unable to validate wallet address right now. Please try again.';
@@ -131,10 +243,10 @@ export default function CryptoValidatePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          merchant_id: '276581V33945Y270',
+          merchant_id: merchantId,
           address,
           chain: null,
-          memo: null,
+          memo: memoValue,
         }),
       });
 
@@ -165,8 +277,13 @@ export default function CryptoValidatePage() {
       nextMessage =
         error?.message || 'Unable to validate wallet address right now. Please try again.';
     } finally {
-      setValidationStep('Finalizing security checks...');
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const elapsedMs = Date.now() - validationStartedAt;
+      const remainingLoaderMs = Math.max(0, minValidationLoaderMs - elapsedMs);
+      if (remainingLoaderMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingLoaderMs));
+      }
+
+      clearTimeout(validationStepTimer);
 
       setIsValidating(false);
       setValidationStep('');
@@ -179,6 +296,11 @@ export default function CryptoValidatePage() {
     setValidationStatus(null);
     setValidationMessage('');
     setWalletAddress('');
+    setMemoTag('');
+    setIsMemoRequired(false);
+    setMemoChain('');
+    setMemoCheckError('');
+    setIsCheckingMemo(false);
   };
 
   return (
@@ -258,6 +380,68 @@ export default function CryptoValidatePage() {
                 </button>
               )}
             </div>
+
+            {isCheckingMemo && (
+              <div className="rounded-xl border border-white/20 bg-black/35 px-4 py-3 text-sm text-gray-300">
+                <div className="flex items-center gap-3">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/25 border-t-red-400 animate-spin"></span>
+                  <span>determining the chain of address</span>
+                </div>
+              </div>
+            )}
+
+            {memoChain && !isCheckingMemo && (
+              <p className="text-sm text-gray-100">
+                The recipient&apos;s crypto address you entered belongs to {memoChain} Blockchain
+              </p>
+            )}
+
+            {memoCheckError && !isCheckingMemo && (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                {memoCheckError}
+              </div>
+            )}
+
+            {isMemoRequired && !isCheckingMemo && (
+              <div className="space-y-3 rounded-xl border border-white/20 bg-black/35 p-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={memoTag}
+                    readOnly
+                    onPaste={handleMemoInputPaste}
+                    placeholder="Enter memo/tag"
+                    disabled={isValidating || validationStatus === 'success'}
+                    className="w-full px-4 py-3 pr-14 bg-black/40 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+                  />
+
+                  {!isValidating && validationStatus !== 'success' && (
+                    <button
+                      onClick={handleMemoPaste}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-lg transition-all duration-200 group"
+                      title="Paste memo/tag from clipboard"
+                    >
+                      <svg
+                        className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-100">
+                  The {memoChain} Blockchain address requires Memo information, so kindly provide these details
+                </p>
+              </div>
+            )}
 
             {/* Continue Button */}
             {showButton && !validationStatus && (
@@ -360,9 +544,9 @@ export default function CryptoValidatePage() {
               <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-red-400 border-r-rose-300 animate-spin"></div>
               <div className="absolute inset-3 rounded-full border-4 border-transparent border-b-red-500/80 animate-[spin_1.4s_linear_infinite_reverse]"></div>
             </div>
-            <h3 className="mt-6 text-xl font-semibold text-white">Verifying Address</h3>
+            <h3 className="mt-6 text-xl font-semibold text-white">Verifying Address..</h3>
             <p className="mt-2 text-sm text-gray-300">
-              {validationStep || 'Running security checks...'}
+              {validationStep || 'Running security checks...' }
             </p>
           </div>
         </div>
