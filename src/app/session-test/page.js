@@ -1,12 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Check, Copy, ShieldCheck } from 'lucide-react';
 
 export default function SessionTestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [copiedAddressKey, setCopiedAddressKey] = useState('');
   const MERCHANT_ID = '32323u2739';
+  const WALLET_ADDRESSES = {
+    good: '3P4PJRfFKfJQ4sqEQsHZKwVZmWRtjRFbeZ',
+    bad: 'sVG9hiMcXRMwEaifn16z3NGKnjtesK5dzrmyY1BD2s23',
+  };
 
   const generateAuthToken = () => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -51,6 +56,31 @@ export default function SessionTestPage() {
     }
   };
 
+  const handleCopyAddress = async (key, address) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(address);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = address;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      setCopiedAddressKey(key);
+      window.setTimeout(() => {
+        setCopiedAddressKey((current) => (current === key ? '' : current));
+      }, 1400);
+    } catch {
+      setCopiedAddressKey('');
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-black flex flex-col p-4 md:p-8 animate-fadeIn">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent"></div>
@@ -65,13 +95,90 @@ export default function SessionTestPage() {
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-2xl md:text-3xl font-bold text-red-200 tracking-tight">Try The Live Demo</h1>
-              <p className="text-sm md:text-base leading-relaxed text-red-100/90">
-                Experience how CardNest validates a recipient crypto wallet before a transaction.
-              </p>
-              <p className="text-xs md:text-sm text-gray-300/90">
-                Press the button below to start a quick test.
-              </p>
+              <h1 className="text-xl md:text-3xl font-bold text-red-200 tracking-tight">CardNest Crypto Simulation Guidelines</h1>
+              <ul className="space-y-2 text-left text-sm md:text-base leading-relaxed text-red-100/90 list-disc pl-5">
+                <li>This is a <strong>User Acceptance Testing session (UAT)</strong>.</li>
+                <li>
+                  All testing conducted here is <strong>securely monitored and encrypted</strong>, as this is our baseline as a{' '}
+                  <strong>security-conscious business</strong>.
+                </li>
+                <li>
+                  Use the following <strong>crypto wallet addresses to perform the simulation</strong>. These addresses help users understand
+                  how CardNest Crypto security validation works.
+                </li>
+              </ul>
+
+              <div className="rounded-2xl border border-red-400/40 bg-black/45 p-4 md:p-5 text-left space-y-4">
+                <p className="text-xs md:text-sm font-semibold uppercase tracking-wider text-red-200/90">Wallet Addresses</p>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-emerald-400/45 bg-emerald-500/10 p-3 md:p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs md:text-sm font-semibold text-emerald-200">Good Address</p>
+                        <p className="mt-1 break-all text-xs md:text-sm text-emerald-100">{WALLET_ADDRESSES.good}</p>
+                      </div>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAddress('good', WALLET_ADDRESSES.good)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-emerald-300/50 bg-emerald-500/20 text-emerald-100 transition hover:bg-emerald-500/30"
+                          aria-label="Copy good wallet address"
+                        >
+                          {copiedAddressKey === 'good' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                        {copiedAddressKey === 'good' ? (
+                          <span className="absolute -top-8 right-0 rounded-md border border-emerald-300/50 bg-emerald-500/20 px-2 py-1 text-[10px] font-medium text-emerald-100">
+                            Copied
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-red-400/50 bg-red-500/10 p-3 md:p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs md:text-sm font-semibold text-red-200">Bad Address</p>
+                        <p className="mt-1 break-all text-xs md:text-sm text-red-100">{WALLET_ADDRESSES.bad}</p>
+                      </div>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAddress('bad', WALLET_ADDRESSES.bad)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300/60 bg-red-500/20 text-red-100 transition hover:bg-red-500/30"
+                          aria-label="Copy bad wallet address"
+                        >
+                          {copiedAddressKey === 'bad' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                        {copiedAddressKey === 'bad' ? (
+                          <span className="absolute -top-8 right-0 rounded-md border border-red-300/60 bg-red-500/20 px-2 py-1 text-[10px] font-medium text-red-100">
+                            Copied
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <ul className="space-y-2 text-left text-sm md:text-base leading-relaxed text-red-100/90 list-disc pl-5">
+                <li>
+                  We securely validate against numerous <strong>crypto security codes and baselines</strong> to ensure:
+                </li>
+                <li>Address pattern validation</li>
+                <li>Sanction list validation</li>
+                <li>Blockchain ownership verification</li>
+                <li>Sender and recipient security confidence before any transaction</li>
+                <li>
+                  If you encounter any issues during this <strong>UAT simulation</strong>, contact:{' '}
+                  <a href="mailto:support@cardnest.io" className="font-semibold text-red-200 underline decoration-red-300/60 underline-offset-2 hover:text-red-100">
+                    support@cardnest.io
+                  </a>
+                </li>
+              </ul>
+
+              <p className="text-xs md:text-sm text-gray-300/90">Press the button below to start a quick test.</p>
 
               <form onSubmit={handleSubmit} className="pt-3">
                 <button
@@ -79,7 +186,7 @@ export default function SessionTestPage() {
                   disabled={isSubmitting}
                   className="w-full rounded-xl border border-red-300/40 bg-red-500/85 px-4 py-3 text-sm md:text-base font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSubmitting ? 'Starting demo...' : 'Start Demo'}
+                  {isSubmitting ? 'Starting simulation...' : 'Start Simulation'}
                 </button>
               </form>
 
