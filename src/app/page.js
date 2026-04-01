@@ -43,6 +43,7 @@ function CryptoValidatePageContent() {
   const [validationStatus, setValidationStatus] = useState(null); 
   const [validationMessage, setValidationMessage] = useState('');
   const [approvedPoints, setApprovedPoints] = useState(successValidationPoints);
+  const [invalidPoints, setInvalidPoints] = useState([]);
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
@@ -225,6 +226,7 @@ function CryptoValidatePageContent() {
     setValidationStatus(null);
     setValidationMessage('');
     setApprovedPoints(successValidationPoints);
+    setInvalidPoints([]);
 
     const minValidationLoaderMs = 7000;
     const secondStepDelayMs = 3000;
@@ -285,16 +287,40 @@ function CryptoValidatePageContent() {
         nextMessage = successValidationPoints.join(' ');
         setApprovedPoints(nextApprovedPoints);
       } else {
+        const chainFromValidation = data?.chain ? String(data.chain).trim() : '';
+        const isSanctionRejected = data?.sanction_list === 'reject';
+
         nextStatus = 'error';
-        nextMessage =
-          data?.valid === false
-            ? "This address isn't valid. Please check and try again."
-            : 'This address is not approved for transaction.';
+
+        if (isSanctionRejected) {
+          const sanctionRejectMessage =
+            data?.message ||
+            `${chainFromValidation || 'This'} address is valid but appears on sanction lists`;
+
+          const sanctionRejectPoints = [
+            chainFromValidation
+              ? `The recipient's crypto address you entered belongs to ${chainFromValidation} Blockchain`
+              : "The recipient's crypto address you entered belongs to an identified blockchain",
+            sanctionRejectMessage,
+            'After validating against millions of sanctioned data, we determined Address is on global sanction list',
+          ];
+
+          setInvalidPoints(sanctionRejectPoints);
+          nextMessage = sanctionRejectMessage;
+        } else {
+          nextMessage =
+            data?.valid === false
+              ? "This address isn't valid. Please check and try again."
+              : 'This address is not approved for transaction.';
+
+          setInvalidPoints([nextMessage]);
+        }
       }
     } catch (error) {
       nextStatus = 'error';
       nextMessage =
         error?.message || 'Unable to validate wallet address right now. Please try again.';
+      setInvalidPoints([nextMessage]);
     } finally {
       const elapsedMs = Date.now() - validationStartedAt;
       const remainingLoaderMs = Math.max(0, minValidationLoaderMs - elapsedMs);
@@ -321,6 +347,7 @@ function CryptoValidatePageContent() {
     setMemoChain('');
     setMemoCheckError('');
     setIsCheckingMemo(false);
+    setInvalidPoints([]);
   };
 
   return (
@@ -552,6 +579,7 @@ function CryptoValidatePageContent() {
       {validationStatus === 'error' && (
         <InvalidModal
           message={validationMessage}
+          points={invalidPoints}
           onRetry={handleRetry}
         />
       )}

@@ -10,7 +10,7 @@ export default function SessionTestPage() {
   const MERCHANT_ID = '32323u2739';
   const WALLET_ADDRESSES = {
     good: '3P4PJRfFKfJQ4sqEQsHZKwVZmWRtjRFbeZ',
-    bad: 'sVG9hiMcXRMwEaifn16z3NGKnjtesK5dzrmyY1BD2s23',
+    bad: 'qpf2cphc5dkuclkqur7lhj2yuqq9pk3hmukle77vhq',
   };
 
   const generateAuthToken = () => {
