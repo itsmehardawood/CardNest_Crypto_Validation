@@ -7,18 +7,10 @@ export default function SessionTestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedAddressKey, setCopiedAddressKey] = useState('');
-  const MERCHANT_ID = '32323u2739';
+  const MERCHANT_ID = '57G64J3535947754';
   const WALLET_ADDRESSES = {
     good: '3P4PJRfFKfJQ4sqEQsHZKwVZmWRtjRFbeZ',
     bad: 'qpf2cphc5dkuclkqur7lhj2yuqq9pk3hmukle77vhq',
-  };
-
-  const generateAuthToken = () => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `token_${Math.random().toString(36).slice(2)}_${Date.now()}`;
   };
 
   const handleSubmit = async (event) => {
@@ -26,8 +18,6 @@ export default function SessionTestPage() {
 
     setIsSubmitting(true);
     setErrorMessage('');
-
-    const authToken = generateAuthToken();
 
     try {
       const response = await fetch('/api/session', {
@@ -37,20 +27,20 @@ export default function SessionTestPage() {
         },
         body: JSON.stringify({
           merchant_id: MERCHANT_ID,
-          auth_token: authToken,
         }),
       });
 
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data?.success) {
-        throw new Error('Unable to start demo right now.');
+        throw new Error(data?.error || data?.message || 'Unable to start demo right now.');
       }
 
       const target = data.redirect_to || `/?session_id=${encodeURIComponent(data.session_id)}`;
       window.location.href = target;
-    } catch {
-      setErrorMessage('Unable to start demo right now. Please try again.');
+    } catch (error) {
+      const fallback = 'Unable to start demo right now. Please try again.';
+      setErrorMessage(error instanceof Error ? error.message || fallback : fallback);
     } finally {
       setIsSubmitting(false);
     }

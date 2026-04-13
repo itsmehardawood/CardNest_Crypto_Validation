@@ -21,7 +21,7 @@ export default function CryptoValidatePage() {
 }
 
 function CryptoValidatePageContent() {
-  const DEFAULT_MERCHANT_ID = '0961266R069G7006';
+  const DEFAULT_MERCHANT_ID = '57G64J3535947754';
   const successValidationPoints = [
     "The recipient's crypto address you entered passed our security format validation.",
     'This crypto address was securely validated successfully against millions of sanctioned data.',
@@ -149,7 +149,7 @@ function CryptoValidatePageContent() {
     const startedAt = Date.now();
 
     try {
-      const response = await fetch('https://admin.cardnest.io/api/crypto/memo-check', {
+      const response = await fetch('https://cryptolaravel.cardnest.io/api/crypto/memo-check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ function CryptoValidatePageContent() {
     let nextMessage = 'Unable to validate wallet address right now. Please try again.';
 
     try {
-      const response = await fetch('https://admin.cardnest.io/api/crypto/validate', {
+      const response = await fetch('https://cryptolaravel.cardnest.io/api/crypto/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -271,7 +271,10 @@ function CryptoValidatePageContent() {
         throw new Error(errorMessage);
       }
 
-      const isApproved = data?.valid === true && data?.sanction_list === 'approve';
+      const normalizedStatus =
+        typeof data?.status === 'string' ? data.status.toLowerCase() : null;
+      const isApproved =
+        data?.is_valid === true && (normalizedStatus ? normalizedStatus === 'success' : true);
 
       if (isApproved) {
         const chainFromValidation = data?.chain ? String(data.chain).trim() : '';
@@ -287,34 +290,13 @@ function CryptoValidatePageContent() {
         nextMessage = successValidationPoints.join(' ');
         setApprovedPoints(nextApprovedPoints);
       } else {
-        const chainFromValidation = data?.chain ? String(data.chain).trim() : '';
-        const isSanctionRejected = data?.sanction_list === 'reject';
-
         nextStatus = 'error';
+        nextMessage =
+          data?.is_valid === false
+            ? "This address isn't valid. Please check and try again."
+            : data?.message || data?.error || 'This address is not approved for transaction.';
 
-        if (isSanctionRejected) {
-          const sanctionRejectMessage =
-            data?.message ||
-            `${chainFromValidation || 'This'} address is valid but appears on sanction lists`;
-
-          const sanctionRejectPoints = [
-            chainFromValidation
-              ? `The recipient's crypto address you entered belongs to ${chainFromValidation} Blockchain`
-              : "The recipient's crypto address you entered belongs to an identified blockchain",
-            sanctionRejectMessage,
-            'After validating against millions of sanctioned data, we determined Address is on global sanction list',
-          ];
-
-          setInvalidPoints(sanctionRejectPoints);
-          nextMessage = sanctionRejectMessage;
-        } else {
-          nextMessage =
-            data?.valid === false
-              ? "This address isn't valid. Please check and try again."
-              : 'This address is not approved for transaction.';
-
-          setInvalidPoints([nextMessage]);
-        }
+        setInvalidPoints([nextMessage]);
       }
     } catch (error) {
       nextStatus = 'error';

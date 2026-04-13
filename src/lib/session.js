@@ -42,12 +42,11 @@ function pruneExpiredSessions() {
   // Stateless token flow has nothing to prune in-process.
 }
 
-function createSession(merchantId, authToken) {
+function createSession(merchantId) {
   const payload = {
     v: 1,
     nonce: generateSessionId(),
     merchantId,
-    authToken,
     createdAt: Date.now(),
   };
 
@@ -70,13 +69,12 @@ function getSession(sessionId) {
     return null;
   }
 
-  if (!payload.merchantId || !payload.authToken) {
+  if (!payload.merchantId) {
     return null;
   }
 
   return {
     merchantId: String(payload.merchantId),
-    authToken: String(payload.authToken),
     createdAt,
   };
 }

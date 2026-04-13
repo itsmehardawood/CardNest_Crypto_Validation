@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSession, deleteSession, getSession } from "@/lib/session";
 
+const VALIDATE_TOKEN_URL = "https://cryptolaravel.cardnest.io/api/crypto/validate-token";
+
 export async function POST(request) {
   let payload;
 
@@ -17,19 +19,50 @@ export async function POST(request) {
   }
 
   const merchantId = payload?.merchant_id;
-  const authToken = payload?.auth_token;
 
-  if (!merchantId || !authToken) {
+  if (!merchantId) {
     return NextResponse.json(
       {
         success: false,
-        error: "merchant_id and auth_token are required",
+        error: "merchant_id is required",
       },
       { status: 400 }
     );
   }
 
-  const sessionId = createSession(String(merchantId), String(authToken));
+  try {
+    const validationResponse = await fetch(VALIDATE_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        merchant_id: String(merchantId),
+      }),
+    });
+
+    const validationData = await validationResponse.json().catch(() => null);
+
+    if (!validationResponse.ok || validationData?.success === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validationData?.error || validationData?.message || "Merchant validation failed",
+        },
+        { status: validationResponse.status || 400 }
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Merchant validation failed",
+      },
+      { status: 502 }
+    );
+  }
+
+  const sessionId = createSession(String(merchantId));
 
   return NextResponse.json({
     success: true,
