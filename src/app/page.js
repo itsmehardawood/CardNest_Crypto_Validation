@@ -273,8 +273,11 @@ function CryptoValidatePageContent() {
 
       const normalizedStatus =
         typeof data?.status === 'string' ? data.status.toLowerCase() : null;
+      const isSanctioned = data?.is_sanctioned === true;
       const isApproved =
-        data?.is_valid === true && (normalizedStatus ? normalizedStatus === 'success' : true);
+        data?.is_valid === true &&
+        !isSanctioned &&
+        (normalizedStatus ? normalizedStatus === 'success' : true);
 
       if (isApproved) {
         const chainFromValidation = data?.chain ? String(data.chain).trim() : '';
@@ -294,7 +297,9 @@ function CryptoValidatePageContent() {
         nextMessage =
           data?.is_valid === false
             ? "This address isn't valid. Please check and try again."
-            : data?.message || data?.error || 'This address is not approved for transaction.';
+            : isSanctioned
+              ? 'This address is on sanction lists and is not approved for transaction.'
+              : data?.message || data?.error || 'This address is not approved for transaction.';
 
         setInvalidPoints([nextMessage]);
       }
