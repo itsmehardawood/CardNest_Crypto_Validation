@@ -21,7 +21,6 @@ export default function CryptoValidatePage() {
 }
 
 function CryptoValidatePageContent() {
-  const DEFAULT_MERCHANT_ID = '57G64J3535947754';
   const successValidationPoints = [
     "The recipient's crypto address you entered passed our security format validation.",
     'This crypto address was securely validated successfully against millions of sanctioned data.',
@@ -30,9 +29,9 @@ function CryptoValidatePageContent() {
   const searchParams = useSearchParams();
   const [accessChecked, setAccessChecked] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const [merchantId, setMerchantId] = useState('');
   const accessCheckStarted = useRef(false);
   const [walletAddress, setWalletAddress] = useState('');
-  const merchantId = DEFAULT_MERCHANT_ID;
   const [memoTag, setMemoTag] = useState('');
   const [isMemoRequired, setIsMemoRequired] = useState(false);
   const [memoChain, setMemoChain] = useState('');
@@ -68,8 +67,16 @@ function CryptoValidatePageContent() {
         });
 
         const data = await response.json().catch(() => null);
-        setHasAccess(response.ok && data?.success === true);
+        const resolvedMerchantId = typeof data?.merchant_id === 'string' ? data.merchant_id.trim() : '';
+        const isAllowed = response.ok && data?.success === true && resolvedMerchantId.length > 0;
+
+        if (isAllowed) {
+          setMerchantId(resolvedMerchantId);
+        }
+
+        setHasAccess(isAllowed);
       } catch {
+        setMerchantId('');
         setHasAccess(false);
       } finally {
         setAccessChecked(true);
@@ -128,6 +135,11 @@ function CryptoValidatePageContent() {
   }
 
   const runMemoCheck = async (address) => {
+    if (!merchantId) {
+      setMemoCheckError('Session merchant identity is missing. Please request a new link.');
+      return;
+    }
+
     const cleanedAddress = address.trim();
 
     if (!cleanedAddress) {
@@ -218,6 +230,12 @@ function CryptoValidatePageContent() {
   const handleValidation = async () => {
     const address = walletAddress.trim();
     if (!address) return;
+    if (!merchantId) {
+      setValidationStatus('error');
+      setValidationMessage('Session merchant identity is missing. Please request a new link.');
+      setInvalidPoints(['Session merchant identity is missing. Please request a new link.']);
+      return;
+    }
 
     const memoValue = isMemoRequired ? memoTag.trim() : null;
     if (isMemoRequired && !memoValue) return;
