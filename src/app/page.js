@@ -139,6 +139,7 @@ function CryptoValidatePageContent() {
         }
 
         if (typeof window !== 'undefined') {
+          // Direct parent function callback only works for same-origin embeds.
           try {
             if (
               window.parent &&
@@ -146,7 +147,12 @@ function CryptoValidatePageContent() {
             ) {
               window.parent.handleApiResponse(responseJson);
             }
+          } catch {
+            // Ignore cross-origin parent access issues
+          }
 
+          // Always attempt cross-origin-safe transport for iframe integrations.
+          try {
             if (window.parent && window.parent !== window) {
               window.parent.postMessage(
                 {
@@ -160,7 +166,7 @@ function CryptoValidatePageContent() {
               );
             }
           } catch {
-            // Ignore cross-origin parent access issues
+            // Ignore cross-origin messaging issues
           }
         }
 
