@@ -89,7 +89,7 @@ Web (JavaScript)
 CardNest sends the callback in two ways:
 
 - Same-origin parent: direct `window.parent.handleApiResponse(jsonString)` call.
-- Cross-origin iframe: `window.postMessage` payload with `{ source: 'cardnest-crypto-validation', type: 'handleApiResponse', data: jsonString }`.
+- Cross-origin iframe: `window.postMessage` payload with `{ source: 'cardnest-crypto-validation', type: 'handleApiResponse', status: true, encrypted_data: '...', data: jsonString }`.
 
 Implement both handlers on the parent page if you embed CardNest in an iframe.
 
@@ -103,9 +103,10 @@ window.handleApiResponse = function (jsonString) {
 
 window.addEventListener('message', function (event) {
 	if (event?.data?.source === 'cardnest-crypto-validation' && event?.data?.type === 'handleApiResponse') {
-		const jsonData = JSON.parse(event.data.data);
-		if (jsonData.status === true) {
-			const encryptedData = jsonData.encrypted_data;
+		const encryptedData = event.data.encrypted_data;
+		const jsonData = event.data.data ? JSON.parse(event.data.data) : null;
+		if (jsonData?.status === true) {
+			// encryptedData is also available directly on event.data
 		}
 	}
 });

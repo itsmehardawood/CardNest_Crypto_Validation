@@ -152,6 +152,8 @@ function CryptoValidatePageContent() {
                 {
                   source: 'cardnest-crypto-validation',
                   type: 'handleApiResponse',
+                  status: true,
+                  encrypted_data: payload.encrypted_data,
                   data: responseJson,
                 },
                 '*'
