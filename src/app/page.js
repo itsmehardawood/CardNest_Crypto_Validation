@@ -44,6 +44,7 @@ function CryptoValidatePageContent() {
   const [approvedPoints, setApprovedPoints] = useState(successValidationPoints);
   const [invalidPoints, setInvalidPoints] = useState([]);
   const [showButton, setShowButton] = useState(false);
+  const [encryptedData, setEncryptedData] = useState('');
 
   useEffect(() => {
     if (accessCheckStarted.current) {
@@ -97,6 +98,67 @@ function CryptoValidatePageContent() {
 
     setShowButton(isMemoRequired ? hasMemo : true);
   }, [walletAddress, memoTag, isMemoRequired, isCheckingMemo]);
+
+  // Trigger final API call after modal is displayed
+  useEffect(() => {
+    if (!validationStatus || !merchantId || !encryptedData) {
+      return;
+    }
+
+    // Set timeout for 2-3 seconds before calling final API
+    const timeoutId = setTimeout(async () => {
+      try {
+        const encryptedDataResponse = await fetch('https://cryptolaravel.cardnest.io/api/crypto/encrypted-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            merchant_id: merchantId,
+            encrypted_data: encryptedData,
+          }),
+        });
+
+        const payload = await encryptedDataResponse.json().catch(() => null);
+
+        if (!encryptedDataResponse.ok || !payload) {
+          return;
+        }
+
+        const responseJson = JSON.stringify({
+          status: true,
+          encrypted_data: payload.encrypted_data,
+        });
+
+        if (
+          typeof window !== 'undefined' &&
+          window.Android &&
+          typeof window.Android.handleApiResponse === 'function'
+        ) {
+          window.Android.handleApiResponse(responseJson);
+        }
+
+        if (typeof window !== 'undefined') {
+          try {
+            if (
+              window.parent &&
+              typeof window.parent.handleApiResponse === 'function'
+            ) {
+              window.parent.handleApiResponse(responseJson);
+            }
+          } catch {
+            // Ignore cross-origin parent access issues
+          }
+        }
+
+        // Fire and forget - no UI updates
+      } catch {
+        // Silently fail - do not update UI
+      }
+    }, 2500); // 2.5 seconds delay
+
+    return () => clearTimeout(timeoutId);
+  }, [validationStatus, merchantId, encryptedData]);
 
   if (!accessChecked) {
     return (
@@ -289,6 +351,10 @@ function CryptoValidatePageContent() {
         throw new Error(errorMessage);
       }
 
+      // Store encrypted_data from validate API response
+      const responseData = data?.data ? String(data.data) : '';
+      setEncryptedData(responseData);
+
       const normalizedStatus =
         typeof data?.status === 'string' ? data.status.toLowerCase() : null;
       const isSanctioned = data?.is_sanctioned === true;
@@ -353,6 +419,7 @@ function CryptoValidatePageContent() {
     setMemoCheckError('');
     setIsCheckingMemo(false);
     setInvalidPoints([]);
+    setEncryptedData('');
   };
 
   return (

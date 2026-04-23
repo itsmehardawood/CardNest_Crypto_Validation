@@ -41,14 +41,14 @@ export default function ApprovedModal({ points, onContinue }) {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
+        {/* <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
           <button
             onClick={onContinue}
             className="w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-green-500 hover:bg-green-400 text-white"
           >
             Continue
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
