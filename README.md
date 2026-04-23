@@ -86,7 +86,12 @@ async function startValidation() {
 
 Web (JavaScript)
 
-If CardNest is loaded in an iframe, implement handleApiResponse on the parent page.
+CardNest sends the callback in two ways:
+
+- Same-origin parent: direct `window.parent.handleApiResponse(jsonString)` call.
+- Cross-origin iframe: `window.postMessage` payload with `{ source: 'cardnest-crypto-validation', type: 'handleApiResponse', data: jsonString }`.
+
+Implement both handlers on the parent page if you embed CardNest in an iframe.
 
 ```javascript
 window.handleApiResponse = function (jsonString) {
@@ -95,7 +100,18 @@ window.handleApiResponse = function (jsonString) {
 		const encryptedData = jsonData.encrypted_data;
 	}
 };
+
+window.addEventListener('message', function (event) {
+	if (event?.data?.source === 'cardnest-crypto-validation' && event?.data?.type === 'handleApiResponse') {
+		const jsonData = JSON.parse(event.data.data);
+		if (jsonData.status === true) {
+			const encryptedData = jsonData.encrypted_data;
+		}
+	}
+});
 ```
+
+No CardNest-side merchant allowlist or special iframe permission is required for the callback itself. Your parent page must simply allow the iframe to load and listen for the message event when the iframe is cross-origin.
 
 Android (Kotlin/Java)
 

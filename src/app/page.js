@@ -146,6 +146,17 @@ function CryptoValidatePageContent() {
             ) {
               window.parent.handleApiResponse(responseJson);
             }
+
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(
+                {
+                  source: 'cardnest-crypto-validation',
+                  type: 'handleApiResponse',
+                  data: responseJson,
+                },
+                '*'
+              );
+            }
           } catch {
             // Ignore cross-origin parent access issues
           }
