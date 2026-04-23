@@ -288,9 +288,14 @@ function CryptoValidatePageContent() {
   };
 
   const handleInputPaste = (event) => {
-    event.preventDefault();
-    const pastedText = event.clipboardData?.getData('text') || '';
-    runMemoCheck(pastedText);
+    const input = event.currentTarget;
+    window.setTimeout(() => {
+      runMemoCheck(input.value);
+    }, 0);
+  };
+
+  const handleAddressChange = (event) => {
+    setWalletAddress(event.target.value);
   };
 
   const handleMemoPaste = async () => {
@@ -303,9 +308,14 @@ function CryptoValidatePageContent() {
   };
 
   const handleMemoInputPaste = (event) => {
-    event.preventDefault();
-    const pastedText = event.clipboardData?.getData('text') || '';
-    setMemoTag(pastedText.trim());
+    const input = event.currentTarget;
+    window.setTimeout(() => {
+      setMemoTag(input.value.trim());
+    }, 0);
+  };
+
+  const handleMemoChange = (event) => {
+    setMemoTag(event.target.value);
   };
 
   const handleValidation = async () => {
@@ -488,7 +498,7 @@ function CryptoValidatePageContent() {
               <input
                 type="text"
                 value={walletAddress}
-                readOnly
+                onChange={handleAddressChange}
                 onPaste={handleInputPaste}
                 placeholder="Paste recipient wallet address"
                 disabled={isValidating || validationStatus === 'success'}
@@ -546,7 +556,7 @@ function CryptoValidatePageContent() {
                   <input
                     type="text"
                     value={memoTag}
-                    readOnly
+                    onChange={handleMemoChange}
                     onPaste={handleMemoInputPaste}
                     placeholder="Enter memo/tag"
                     disabled={isValidating || validationStatus === 'success'}
