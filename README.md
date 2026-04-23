@@ -1,190 +1,126 @@
-# CardNest Crypto Validation
+# CardNest Crypto Validation: Client Integration Guide
 
-CardNest Crypto Validation is a hosted security-check flow that lets your users validate a recipient crypto address before continuing with a transfer.
+This guide outlines the production-ready integration process for CardNest Crypto Validation. Ensure all implementations strictly follow the security protocols listed below to maintain the integrity of the validation flow.
 
-The integration pattern is simple:
-1. Your app starts a secure CardNest session for a merchant.
-2. CardNest returns a one-time `session_id`.
-3. You redirect the user to the CardNest validation page with that `session_id`.
-4. CardNest verifies access, checks the wallet address, optionally requests a memo/tag, and shows an approved or rejected result.
+## 1. Overview
 
-## What customers need
+CardNest Crypto Validation provides a hosted, secure environment for users to validate cryptocurrency addresses before completing transfers. This service removes the burden of managing complex validation logic while ensuring high security for both merchants and end-users.
 
-Customers integrating this solution need:
+## 2. Security Best Practices
 
-- A registered `merchant_id`.
-- A backend or server-side route that can call CardNest session creation.
-- A way to open the CardNest experience in a browser, embedded webview, or redirect flow.
-- A wallet address ready to validate from their own checkout or transfer flow.
-- Optional memo/tag support for chains that require it.
+- Zero Frontend Exposure: Never expose your merchant_id in frontend code or client-side logs.
+- Server-to-Server Only: Always create sessions from your backend/server only.
+- Protocol Requirement: Use HTTPS for all requests and redirects.
+- Session Lifecycle: session_id is single-use and should be treated as short-lived.
 
-## How it works
+## 3. Prerequisites
 
-The current app uses two session endpoints:
+- Merchant ID: Your merchant_id stored securely on the backend.
+- Backend Infrastructure: A server-side environment to call the CardNest session API.
+- Client Interface: Frontend Web or Mobile that can open the redirect URL or WebView.
 
-- `POST /api/session` creates a secure session after validating the merchant.
-- `GET /api/session?session_id=...` confirms the session before the UI loads.
+## 4. Integration Flow
 
-After access is confirmed, the page:
+1. Backend Session Creation: Your server calls the CardNest API to generate a unique session.
+2. Secure Redirect: Your frontend receives a relative path and sends the user to the CardNest hosted page.
+3. User Input: The user enters wallet details within the secure CardNest environment.
+4. Validation and Callback: CardNest validates the data and returns the result via a callback.
 
-- accepts a wallet address,
-- checks whether the address requires a memo/tag,
-- sends the address to the validation service,
-- shows an approval or rejection result.
+Note on Timing: The callback is dispatched approximately 2.5 seconds after the result modal appears to ensure the user has time to view the validation status.
 
-## Integration flow
+## 5. API Integration (Backend)
 
-### 1. Customer starts from their app
+Base URL: https://crypto.cardnest.io
 
-The customer clicks something like:
+Endpoint: /api/session
 
-- `Validate wallet`
-- `Review recipient address`
-- `Continue with secure check`
+Method: POST
 
-### 2. Their backend requests a CardNest session
+Request Body (JSON):
 
-The merchant should create the session server-side so the `merchant_id` is not exposed in the frontend.
-
-Example:
-
-```js
-const response = await fetch('https://crypto.cardnest.io/api/session', {
-	method: 'POST',
-	headers: { 'Content-Type': 'application/json' },
-	body: JSON.stringify({ merchant_id: 'YOUR_MERCHANT_ID' }),
-});
-
-const data = await response.json();
+```json
+{
+	"merchant_id": "YOUR_PRODUCTION_ID"
+}
 ```
 
-The response returns:
+Response (JSON):
 
 ```json
 {
 	"success": true,
-	"session_id": "...",
-	"redirect_to": "/?session_id=..."
+	"session_id": "sess_123abc456def",
+	"redirect_to": "/?session_id=sess_123abc456def"
 }
 ```
 
-### 3. Redirect or open the CardNest page
+Implementation Note: The redirect_to field returns a relative path. Your frontend must append this to the base URL (https://crypto.cardnest.io) to form the full destination.
 
-Use the returned `redirect_to` value, or build the URL yourself:
+## 6. Frontend Integration
 
-```js
-window.location.href = `https://crypto.cardnest.io/?session_id=${encodeURIComponent(sessionId)}`;
-```
+The frontend should call your backend endpoint (for example, /api/start-session). Your backend then calls the CardNest session API with the merchant_id.
 
-For mobile, open the same URL in:
+JavaScript Example:
 
-- an in-app browser,
-- a secure webview,
-- or the device browser, depending on the UX you want.
-
-### 4. User validates the address
-
-Inside CardNest, the user:
-
-- pastes the recipient wallet address,
-- sees whether a memo/tag is required,
-- adds the memo/tag if needed,
-- starts validation.
-
-### 5. CardNest returns the result
-
-If the address passes validation, the UI shows an approved state with security details.
-
-If the address fails, the UI shows a rejection state with the reason.
-
-## Web integration example
-
-```js
+```javascript
 async function startValidation() {
-	const response = await fetch('/api/cardnest/session', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ merchant_id: 'YOUR_MERCHANT_ID' }),
-	});
+	try {
+		const response = await fetch('/api/start-session');
 
-	const data = await response.json();
+		if (!response.ok) {
+			throw new Error('Failed to initialize session');
+		}
 
-	if (!response.ok || !data.success) {
-		throw new Error(data.error || 'Unable to start validation');
+		const data = await response.json();
+
+		if (data.success && data.redirect_to) {
+			window.location.href = `https://crypto.cardnest.io${data.redirect_to}`;
+		}
+	} catch (error) {
+		console.error('Integration Error:', error);
 	}
-
-	window.location.href = data.redirect_to;
 }
 ```
 
-## Mobile integration example
+## 7. Callback Handling
 
-Mobile apps usually follow the same backend flow:
+Web (JavaScript)
 
-1. The app calls your server.
-2. Your server requests a CardNest session.
-3. Your app opens the returned URL in a browser or webview.
-4. The user completes validation.
+If CardNest is loaded in an iframe, implement handleApiResponse on the parent page.
 
-Example flow:
-
-```text
-Mobile app -> Your backend -> CardNest session API -> redirect URL -> CardNest validation screen
+```javascript
+window.handleApiResponse = function (jsonString) {
+	const jsonData = JSON.parse(jsonString);
+	if (jsonData.status === true) {
+		const encryptedData = jsonData.encrypted_data;
+	}
+};
 ```
 
-## What your backend should do
+Android (Kotlin/Java)
 
-Your backend should:
+Register the Javascript Interface with the name "Android".
 
-- keep `merchant_id` private,
-- request a session only when the user is ready to validate,
-- pass the `session_id` to the CardNest page,
-- handle the result after the user returns to your app if you use a return URL or callback flow.
+Step 1: Register Interface
 
-## What your frontend should do
-
-Your frontend should:
-
-- send the user into the CardNest validation screen,
-- wait for the approval or rejection result,
-- continue only when the address is approved,
-- stop or warn the user when the address is rejected.
-
-## Expected inputs from the customer
-
-- `merchant_id`: identifies the merchant account.
-- `session_id`: one-time access token for the validation page.
-- `wallet address`: the recipient address the customer wants to validate.
-- `memo/tag`: only when the chain requires it.
-
-## User experience summary
-
-From the customer's point of view, the flow is:
-
-1. They choose a recipient address in your app.
-2. They are redirected to CardNest for secure validation.
-3. CardNest checks whether the address is allowed.
-4. CardNest returns approval or rejection.
-5. Your app continues the transfer only if the result is approved.
-
-## Running locally
-
-```bash
-npm install
-npm run dev
+```kotlin
+webView.addJavascriptInterface(WebAppInterface(), "Android")
 ```
 
-Open [https://crypto.cardnest.io](https://crypto.cardnest.io) to view the app.
+Step 2: Handle the Data
 
-## Files that control the flow
+```kotlin
+@JavascriptInterface
+fun handleApiResponse(jsonString: String) {
+	val jsonData = JSONObject(jsonString)
+	if (jsonData.getBoolean("status")) {
+		val encryptedData = jsonData.optString("encrypted_data", "")
+	}
+}
+```
 
-- [src/app/page.js](src/app/page.js) handles the customer-facing validation screen.
-- [src/app/api/session/route.js](src/app/api/session/route.js) creates and verifies sessions.
-- [src/lib/session.js](src/lib/session.js) stores the session helper logic.
+## 8. Decryption and Processing
 
-## Notes for production
-
-- Use HTTPS for all redirects and API calls.
-- Keep merchant credentials on the server.
-- Treat `session_id` as short-lived and one-time use.
-- Decide whether you want a browser redirect, embedded webview, or return-to-app flow for mobile.
+- Transmission: Send encrypted_data to your backend.
+- Decryption: Decrypt the payload using your secret key.
+- Finalization: Proceed with the transaction if the decrypted status is approved.
