@@ -206,7 +206,7 @@ function CryptoValidatePageContent() {
                 We couldn&apos;t verify this secure link right now.
               </p>
               <p className="text-xs md:text-sm text-gray-300/90">
-                Please request a new link from the merchant and try again.
+                Please request a new link from the valid merchant with active subscription and try again.
               </p>
             </div>
           </div>

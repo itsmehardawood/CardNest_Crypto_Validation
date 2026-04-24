@@ -42,14 +42,21 @@ export async function POST(request) {
     });
 
     const validationData = await validationResponse.json().catch(() => null);
+    const deniedByPayload =
+      validationData?.success === false ||
+      validationData?.status === false ||
+      Number(validationData?.code) === 403;
 
-    if (!validationResponse.ok || validationData?.success === false) {
+    if (!validationResponse.ok || deniedByPayload) {
+      const statusCode = Number(validationData?.code) || validationResponse.status || 400;
+
       return NextResponse.json(
         {
           success: false,
           error: validationData?.error || validationData?.message || "Merchant validation failed",
+          redirect_to: "/",
         },
-        { status: validationResponse.status || 400 }
+        { status: statusCode }
       );
     }
   } catch {

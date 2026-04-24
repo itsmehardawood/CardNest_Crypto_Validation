@@ -7,7 +7,9 @@ export default function SessionTestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedAddressKey, setCopiedAddressKey] = useState('');
-  const MERCHANT_ID = '57G64J3535947754';
+  // const MERCHANT_ID = '57G64J3535947754';
+  const MERCHANT_ID = '7M94U03645102001';
+
   const WALLET_ADDRESSES = {
     good: '3P4PJRfFKfJQ4sqEQsHZKwVZmWRtjRFbeZ',
     bad: 'qpf2cphc5dkuclkqur7lhj2yuqq9pk3hmukle77vhq',
@@ -33,6 +35,11 @@ export default function SessionTestPage() {
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data?.success) {
+        if (typeof data?.redirect_to === 'string' && data.redirect_to.length > 0) {
+          window.location.href = data.redirect_to;
+          return;
+        }
+
         throw new Error(data?.error || data?.message || 'Unable to start demo right now.');
       }
 
